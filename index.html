@@ -68966,9 +68966,11 @@ function initPencarianFonetik() {
 function normalisasi(teks) {
   return teks
     .toUpperCase()
-    .replace(/[^A-Z\s]/g, '')
-    .replace(/\s+/g, 'X')
-    .replace(/([A-Z])\1+/g, '$1')
+    .replace(/\s+/g, '')            // ⬅️ Hilangkan semua spasi
+    .replace(/'/g, 'X')             // Tangani tanda petik
+
+    .replace(/([A-Z])\1+/g, '$1')   // Hilangkan huruf ganda
+
     .replace(/K/g, 'Q')
     .replace(/Z/g, 'J')
     .replace(/V/g, 'F')
@@ -68985,8 +68987,11 @@ function normalisasi(teks) {
     .replace(/GA/g, 'GHA')
     .replace(/GHA/g, 'GHO')
     .replace(/W/g, 'U')
-    .replace(/RAB/g, 'ROB');
+    .replace(/RAB/g, 'ROB')
+    .replace(/Y/g, 'I');
 }
+
+
 
 // Hitung skor kemiripan 0-1 (semakin tinggi semakin mirip)
 function hitungSkorKemiripan(a, b) {
@@ -69061,30 +69066,38 @@ function cariPalingRelevan(query) {
 }
 
 
-  window.tampilkanHasilPencarian = function() {
-    const query = document.getElementById('pencarian').value.trim();
-    if (query.replace(/\s/g, '').length < 3) {
-      document.getElementById('outputPencarian').innerHTML = '';
-      document.getElementById('totalIndex').textContent = '';
-      document.getElementById('tampilanAyatSekitar').textContent = '';
-      return;
-    }
+ window.tampilkanHasilPencarian = function() {
+  const query = document.getElementById('pencarian').value.trim();
+  const inputBersih = query.replace(/\s/g, '');
 
-    const hasil = cariPalingRelevan(query);
-  const output = hasil.slice(0, 100).map(h => {
-  const ayat = ayatArab.find(a => a.surah === h.surah && a.ayat === h.ayat);
-  const nama = ayat?.nama || `Surah ${h.nama}`;
-
-  return `<div onclick="tampilkanAyatSekitar(${h.surah}, ${h.ayat})" style="cursor:pointer; padding:5px; border-bottom:1px solid #ccc;">
-    <strong>${h.nama}</strong> (${h.surah}:${h.ayat})<br>${h.teksArab}
-  </div>`;
-}).join('');
-
-
-    document.getElementById('outputPencarian').innerHTML = output || 'Tidak ditemukan hasil relevan.';
-    document.getElementById('totalIndex').textContent = `Total ditemukan: ${hasil.length} ayat.`;
+  if (inputBersih.length < 3) {
+    document.getElementById('outputPencarian').innerHTML = '';
+    document.getElementById('totalIndex').textContent = '';
     document.getElementById('tampilanAyatSekitar').textContent = '';
-  };
+    hasilPencarianSebelumnya = []; // reset cache
+    return;
+  }
+
+  const hasilBaru = cariPalingRelevan(query);
+
+  // Kalau hasilBaru tidak ada tapi sebelumnya ada → pakai hasil lama
+  const hasil = hasilBaru.length > 0 ? hasilBaru : hasilPencarianSebelumnya;
+
+  // Simpan ke cache kalau hasil baru tidak kosong
+  if (hasilBaru.length > 0) hasilPencarianSebelumnya = hasilBaru;
+
+  const output = hasil.slice(0, 100).map(h => {
+    const ayat = ayatArab.find(a => a.surah === h.surah && a.ayat === h.ayat);
+    const nama = ayat?.nama || `Surah ${h.nama}`;
+    return `<div onclick="tampilkanAyatSekitar(${h.surah}, ${h.ayat})" style="cursor:pointer; padding:5px; border-bottom:1px solid #ccc;">
+      <strong>${nama}</strong> (${h.surah}:${h.ayat})<br>${h.teksArab}
+    </div>`;
+  }).join('');
+
+  document.getElementById('outputPencarian').innerHTML = output || 'Tidak ditemukan hasil relevan.';
+  document.getElementById('totalIndex').textContent = `Total ditemukan: ${hasil.length} ayat.`;
+  document.getElementById('tampilanAyatSekitar').textContent = '';
+};
 
 window.tampilkanAyatSekitar = function(surah, ayat) {
   surahSekarang = surah;
@@ -69467,15 +69480,20 @@ Juz 30-26
 <br> <br>
 
 <!-- Tombol untuk menyimpan ke spreadsheet -->
+
+
+<button onclick="salinHasil('hasilOutput1')" style="background-color: #6a0dad; color: white">
+  Salin Data (Paste To Excel)
+</button>
+    
 <a href="https://docs.google.com/spreadsheets/d/1NByf7w_yYL_Q58HdQifUzIyoFAA96KazfFwZVATB8vI/edit?usp=drivesdk" target="_blank">
   <button style="background-color: green; color: white">
       Spreadsheet
         </button>
         </a>
-
-<button onclick="salinHasil('hasilOutput1')" style="background-color: #6a0dad; color: white">
-  Salin Data (Paste To Excel)
-</button><br>
+    
+    
+    <br>
 
 
 <div id="hasilTable1" style="margin-top: 20px;"></div>
