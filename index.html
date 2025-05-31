@@ -114127,7 +114127,213 @@ const fonetikData = [
 </script>
 
 
+<br><br> <br>
 
+
+
+
+
+<div>
+
+<h3>Analisis Pencapaian Minimum (format pengisian: 114/1 67/30 2022-07-15) (Misal Awal Masuk KBM)</h3>
+<textarea id="input" rows="6" placeholder="Target 2 Juz Selama 3 Tahun Ialah = 0,51 baris perhari dari surah 114/1 sampai 67/30"></textarea>
+<br>
+<button onclick="hitung()">Hitung</button>
+
+
+<!-- Textarea tersembunyi tapi masih bisa di-select dan copy -->
+<textarea id="output" readonly style="position: absolute; left: -9999px;"></textarea>
+
+
+<!-- Tombol untuk menyalin -->
+<button onclick="salinHasil('output')" style="background-color: #6a0dad; color: white; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer;">
+  Salin Data (Paste To Excel)
+</button>
+
+<!-- SweetAlert2 -->
+
+
+</div>
+
+<script>
+  function salinHasil(id) {
+    const element = document.getElementById(id);
+
+    if (element) {
+      if (element.tagName === "TEXTAREA" || element.tagName === "INPUT") {
+        element.select();
+        element.setSelectionRange(0, 99999);
+        document.execCommand("copy");
+      } else {
+        navigator.clipboard.writeText(element.innerText || element.textContent);
+      }
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Berhasil!',
+        text: 'Hasil disalin ke clipboard!',
+        timer: 1500,
+        showConfirmButton: false
+      });
+    } else {
+      Swal.fire({
+        icon: 'error',
+        title: 'Gagal!',
+        text: 'Elemen tidak ditemukan.',
+      });
+    }
+  }
+</script>
+
+
+
+<textarea id="output" rows="10" readonly style="display: none;"></textarea>
+
+<h3>Output Tabel</h3>
+<div id="tabelOutput"></div>
+
+
+
+
+
+<script>
+function getTodayDate() {
+  const today = new Date();
+  return today.toISOString().split("T")[0];
+}
+
+function getMaxAyat(surat) {
+  return data.filter(d => d.Nama.startsWith(`${surat}/`)).length;
+}
+
+function cariNamaLengkap(kode) {
+  const item = data.find(d => d.Nama.startsWith(kode));
+  return item ? item.Nama : kode;
+}
+
+function salin() {
+  navigator.clipboard.writeText(document.getElementById("output").value);
+  alert("data disalin!");
+}
+
+function hitung() {
+  const target = 549;
+  const lines = document.getElementById("input").value.trim().split("\n");
+  let textOutput = "No\tawal\takhir\ttanggal\thari\tayat\tbaris\thalaman\tpersen\tsisa\trata\tLewat Rata >0.49\n";
+  let html = `<table border="1" cellspacing="0" cellpadding="5" style="border-collapse:collapse;">
+    <tr>
+      <th>No</th><th>Awal</th><th>Akhir</th><th>Tanggal</th><th>Hari</th>
+      <th>Total Ayat</th><th>Total Baris</th><th>Jumlah Halaman</th>
+      <th>%</th><th>Sisa Target Baris (jika minus = melebihi target)</th><th>Rata-Rata Baris Per Hari</th><th>Tercapai Minimum Rata-rata Baris Perhari>0.51 ?</th>
+    </tr>`;
+
+  let countLewatRata = 0;
+  let countKurangRata = 0;
+  let totalData = 0;
+  let no = 1;
+
+  for (const line of lines) {
+    const parts = line.trim().split(/\s+/);
+    const refs = parts.filter(p => /^\d+\/\d+$/.test(p));
+    const tanggalRaw = parts.find(p => /^\d{4}-\d{2}-\d{2}$/.test(p));
+    if (refs.length < 2) continue;
+
+    totalData++;
+
+    let [sAwal, aAwal] = refs[0].split("/").map(s => s.trim());
+    let [sAkhir, aAkhir] = refs[1].split("/").map(s => s.trim());
+
+    const maxAwal = getMaxAyat(sAwal);
+    const maxAkhir = getMaxAyat(sAkhir);
+    aAwal = Math.min(parseInt(aAwal), maxAwal);
+    aAkhir = Math.min(parseInt(aAkhir), maxAkhir);
+
+    const kodeAwal = `${sAwal}/${aAwal}`;
+    const kodeAkhir = `${sAkhir}/${aAkhir}`;
+    const namaAwal = cariNamaLengkap(kodeAwal);
+    const namaAkhir = cariNamaLengkap(kodeAkhir);
+    const tanggal = tanggalRaw || getTodayDate();
+
+    let idxAwal = data.findIndex(d => d.Nama.startsWith(kodeAwal));
+    let idxAkhir = data.findIndex(d => d.Nama.startsWith(kodeAkhir));
+    if (idxAwal === -1 || idxAkhir === -1) continue;
+    if (idxAwal > idxAkhir) [idxAwal, idxAkhir] = [idxAkhir, idxAwal];
+
+    let totalAyat = 0, totalBaris = 0;
+    for (let i = idxAwal; i <= idxAkhir; i++) {
+      totalAyat += data[i].nilai.ayat;
+      totalBaris += data[i].nilai.baris;
+    }
+
+    const halaman = (totalBaris / 15).toFixed(2);
+    const persen = ((totalBaris / target) * 100).toFixed(2);
+    const sisa = target - totalBaris;
+    const hariIni = new Date();
+    const tglMulai = new Date(tanggal);
+    const hari = Math.max(1, Math.floor((hariIni - tglMulai) / (1000 * 60 * 60 * 24)));
+    const rata = (totalBaris / hari).toFixed(2);
+
+    const lewatRata = rata > 0.51 ? "YA" : "TIDAK";
+    if (lewatRata === "YA") {
+      countLewatRata++;
+    } else {
+      countKurangRata++;
+    }
+
+    textOutput += `${no}\t${namaAwal}\t${namaAkhir}\t${tanggal}\t${hari}\t${totalAyat}\t${totalBaris}\t${halaman}\t${persen}%\t${sisa}\t${rata}\t${lewatRata}\n`;
+
+    html += `<tr>
+      <td>${no}</td><td>${namaAwal}</td><td>${namaAkhir}</td><td>${tanggal}</td><td>${hari}</td>
+      <td>${totalAyat}</td><td>${totalBaris}</td><td>${halaman}</td>
+      <td>${persen}%</td><td>${sisa}</td><td>${rata}</td><td>${lewatRata}</td>
+    </tr>`;
+
+    no++;
+  }
+
+  const persenLewat = totalData === 0 ? 0 : ((countLewatRata / totalData) * 100).toFixed(2);
+  const persenKurang = totalData === 0 ? 0 : ((countKurangRata / totalData) * 100).toFixed(2);
+
+  html += `<tr style="font-weight:bold; background:#eef;">
+    <td colspan="11" style="text-align:right;">Jumlah data dengan Rata-rata > 0.51 :</td>
+    <td>${countLewatRata}</td>
+  </tr>`;
+
+  html += `<tr style="font-weight:bold; background:#eef;">
+    <td colspan="11" style="text-align:right;">Persentase data tercapai Rata-rata > 0.51 :</td>
+    <td>${persenLewat}%</td>
+  </tr>`;
+
+  html += `<tr style="font-weight:bold; background:#eef;">
+    <td colspan="11" style="text-align:right;">Jumlah data yang belum tercapai :</td>
+    <td>${countKurangRata}</td>
+  </tr>`;
+
+  html += `<tr style="font-weight:bold; background:#eef;">
+    <td colspan="11" style="text-align:right;">Persentase data belum tercapai :</td>
+    <td>${persenKurang}%</td>
+  </tr>`;
+
+  html += "</table>";
+
+  textOutput += `\nJumlah data dengan Rata > 0.49:\t${countLewatRata}\n`;
+  textOutput += `Persentase data lewat Rata > 0.49:\t${persenLewat}%\n`;
+  textOutput += `Jumlah data dengan Rata  0.49:\t${countKurangRata}\n`;
+  textOutput += `Persentase data Rata  0.49:\t${persenKurang}%\n`;
+
+  document.getElementById("output").value = textOutput.trim();
+  document.getElementById("tabelOutput").innerHTML = html;
+}
+</script>
+
+
+
+
+
+
+
+
+<br><br><br>
     
 </body>
 </html>
