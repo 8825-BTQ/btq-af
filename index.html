@@ -114136,7 +114136,7 @@ const fonetikData = [
 <div>
 
 <h3>Analisis Pencapaian Minimum (format pengisian: 114/1 67/30 2022-07-15) (Misal Awal Masuk KBM)</h3>
-<textarea id="input" rows="6" placeholder="Target 2 Juz Selama 3 Tahun Ialah = 0,51 baris perhari dari surah 114/1 sampai 67/30"></textarea>
+<textarea id="input" rows="6" placeholder="Target 2 Juz Selama 3 Tahun Ialah = 0,50 baris perhari dari surah 114/1 sampai 67/30"></textarea>
 <br>
 <button onclick="hitung()">Hitung</button>
 
@@ -114219,12 +114219,12 @@ function salin() {
 function hitung() {
   const target = 549;
   const lines = document.getElementById("input").value.trim().split("\n");
-  let textOutput = "No\tawal\takhir\ttanggal\thari\tayat\tbaris\thalaman\tpersen\tsisa\trata\tLewat Rata >0.49\n";
+  let textOutput = "No\tNama\tawal\takhir\ttanggal\thari\tayat\tbaris\thalaman\tpersen\tsisa\trata\tLewat Rata >0.49\n";
   let html = `<table border="1" cellspacing="0" cellpadding="5" style="border-collapse:collapse;">
     <tr>
-      <th>No</th><th>Awal</th><th>Akhir</th><th>Tanggal</th><th>Hari</th>
+      <th>No</th><th>Nama</th><th>Awal</th><th>Akhir</th><th>Tanggal</th><th>Hari</th>
       <th>Total Ayat</th><th>Total Baris</th><th>Jumlah Halaman</th>
-      <th>%</th><th>Sisa Target Baris (jika minus = melebihi target)</th><th>Rata-Rata Baris Per Hari</th><th>Tercapai Minimum Rata-rata Baris Perhari>0.51 ?</th>
+      <th>%</th><th>Sisa Target Baris (jika minus = melebihi target)</th><th>Rata-Rata Baris Per Hari</th><th>Tercapai Minimum Rata-rata Baris Perhari>0.49 ?</th>
     </tr>`;
 
   let countLewatRata = 0;
@@ -114234,8 +114234,39 @@ function hitung() {
 
   for (const line of lines) {
     const parts = line.trim().split(/\s+/);
-    const refs = parts.filter(p => /^\d+\/\d+$/.test(p));
-    const tanggalRaw = parts.find(p => /^\d{4}-\d{2}-\d{2}$/.test(p));
+
+    // ===== DETEKSI NAMA MULTI-KATA DI AWAL =====
+    let nama = "-";
+    let namaParts = [];
+    for (let i = 0; i < parts.length; i++) {
+      if (/^\d+$/.test(parts[i]) || /^\d+\/\d+$/.test(parts[i])) {
+        break;
+      }
+      namaParts.push(parts[i]);
+    }
+    if (namaParts.length > 0) {
+      nama = namaParts.join(" ");
+      parts.splice(0, namaParts.length); // hapus nama dari parts
+    }
+
+    // ===== GABUNGKAN AYAT "114 1" JADI "114/1" =====
+    const refs = [];
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (/^\d+$/.test(parts[i]) && /^\d+$/.test(parts[i + 1])) {
+        refs.push(`${parts[i]}/${parts[i + 1]}`);
+        i++;
+      } else if (/^\d+\/\d+$/.test(parts[i])) {
+        refs.push(parts[i]);
+      }
+    }
+
+    // ===== DETEKSI TANGGAL DENGAN FORMAT FLEKSIBEL =====
+    const tanggalRaw = parts.find(p =>
+      /^\d{4}-\d{2}-\d{2}$/.test(p) || // yyyy-mm-dd
+      /^\d{8}$/.test(p) ||            // yyyymmdd
+      /^\d{4}[ ./]\d{2}[ ./]\d{2}$/.test(p) // yyyy.mm.dd atau yyyy/mm/dd atau yyyy mm dd
+    );
+
     if (refs.length < 2) continue;
 
     totalData++;
@@ -114252,7 +114283,7 @@ function hitung() {
     const kodeAkhir = `${sAkhir}/${aAkhir}`;
     const namaAwal = cariNamaLengkap(kodeAwal);
     const namaAkhir = cariNamaLengkap(kodeAkhir);
-    const tanggal = tanggalRaw || getTodayDate();
+    const tanggal = tanggalRaw ? normalisasiTanggal(tanggalRaw) : getTodayDate();
 
     let idxAwal = data.findIndex(d => d.Nama.startsWith(kodeAwal));
     let idxAkhir = data.findIndex(d => d.Nama.startsWith(kodeAkhir));
@@ -114268,22 +114299,23 @@ function hitung() {
     const halaman = (totalBaris / 15).toFixed(2);
     const persen = ((totalBaris / target) * 100).toFixed(2);
     const sisa = target - totalBaris;
+
     const hariIni = new Date();
     const tglMulai = new Date(tanggal);
     const hari = Math.max(1, Math.floor((hariIni - tglMulai) / (1000 * 60 * 60 * 24)));
     const rata = (totalBaris / hari).toFixed(2);
 
-    const lewatRata = rata > 0.51 ? "YA" : "TIDAK";
+    const lewatRata = rata > 0.49 ? "YA" : "TIDAK";
     if (lewatRata === "YA") {
       countLewatRata++;
     } else {
       countKurangRata++;
     }
 
-    textOutput += `${no}\t${namaAwal}\t${namaAkhir}\t${tanggal}\t${hari}\t${totalAyat}\t${totalBaris}\t${halaman}\t${persen}%\t${sisa}\t${rata}\t${lewatRata}\n`;
+    textOutput += `${no}\t${nama}\t${namaAwal}\t${namaAkhir}\t${tanggal}\t${hari}\t${totalAyat}\t${totalBaris}\t${halaman}\t${persen}%\t${sisa}\t${rata}\t${lewatRata}\n`;
 
     html += `<tr>
-      <td>${no}</td><td>${namaAwal}</td><td>${namaAkhir}</td><td>${tanggal}</td><td>${hari}</td>
+      <td>${no}</td><td>${nama}</td><td>${namaAwal}</td><td>${namaAkhir}</td><td>${tanggal}</td><td>${hari}</td>
       <td>${totalAyat}</td><td>${totalBaris}</td><td>${halaman}</td>
       <td>${persen}%</td><td>${sisa}</td><td>${rata}</td><td>${lewatRata}</td>
     </tr>`;
@@ -114295,22 +114327,22 @@ function hitung() {
   const persenKurang = totalData === 0 ? 0 : ((countKurangRata / totalData) * 100).toFixed(2);
 
   html += `<tr style="font-weight:bold; background:#eef;">
-    <td colspan="11" style="text-align:right;">Jumlah data dengan Rata-rata > 0.51 :</td>
+    <td colspan="12" style="text-align:right;">Jumlah data dengan Rata-rata > 0.49 :</td>
     <td>${countLewatRata}</td>
   </tr>`;
 
   html += `<tr style="font-weight:bold; background:#eef;">
-    <td colspan="11" style="text-align:right;">Persentase data tercapai Rata-rata > 0.51 :</td>
+    <td colspan="12" style="text-align:right;">Persentase data tercapai Rata-rata > 0.49 :</td>
     <td>${persenLewat}%</td>
   </tr>`;
 
   html += `<tr style="font-weight:bold; background:#eef;">
-    <td colspan="11" style="text-align:right;">Jumlah data yang belum tercapai :</td>
+    <td colspan="12" style="text-align:right;">Jumlah data yang belum tercapai :</td>
     <td>${countKurangRata}</td>
   </tr>`;
 
   html += `<tr style="font-weight:bold; background:#eef;">
-    <td colspan="11" style="text-align:right;">Persentase data belum tercapai :</td>
+    <td colspan="12" style="text-align:right;">Persentase data belum tercapai :</td>
     <td>${persenKurang}%</td>
   </tr>`;
 
@@ -114318,17 +114350,27 @@ function hitung() {
 
   textOutput += `\nJumlah data dengan Rata > 0.49:\t${countLewatRata}\n`;
   textOutput += `Persentase data lewat Rata > 0.49:\t${persenLewat}%\n`;
-  textOutput += `Jumlah data dengan Rata  0.49:\t${countKurangRata}\n`;
-  textOutput += `Persentase data Rata  0.49:\t${persenKurang}%\n`;
+  textOutput += `Jumlah data dengan Rata ≤ 0.49:\t${countKurangRata}\n`;
+  textOutput += `Persentase data Rata ≤ 0.49:\t${persenKurang}%\n`;
 
   document.getElementById("output").value = textOutput.trim();
   document.getElementById("tabelOutput").innerHTML = html;
 }
+
+// ===== Fungsi bantu normalisasi tanggal jadi yyyy-mm-dd =====
+function normalisasiTanggal(tanggal) {
+  let clean = tanggal.replace(/[^\d]/g, ''); // hanya angka
+  if (clean.length === 8) {
+    let yyyy = clean.slice(0, 4);
+    let mm = clean.slice(4, 6);
+    let dd = clean.slice(6, 8);
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  return getTodayDate(); // fallback
+}
+
+
 </script>
-
-
-
-
 
 
 
